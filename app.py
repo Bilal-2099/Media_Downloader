@@ -97,7 +97,7 @@ def _save_image_from_url(url: str, folder: str, name: str):
 
 
 def download_photo(url: str, notification: bool = False, target_folder: str | None = None):
-    """Download photo(s) into `target_folder` if provided, otherwise into downloads/photos."""
+    """Download photo(s) into target_folder and handle TikTok slideshows correctly."""
     if target_folder is None:
         folder = os.path.abspath(os.path.join("downloads", "photos"))
     else:
@@ -105,27 +105,53 @@ def download_photo(url: str, notification: bool = False, target_folder: str | No
     os.makedirs(folder, exist_ok=True)
 
     lower = url.lower()
+    
+    # --- TIKTOK SLIDESHOW FIX ---
     if "tiktok.com" in lower:
+        print(f"DEBUG: Attempting TikTok download for: {url}")
         command = [
             sys.executable, "-m", "gallery_dl",
+            "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
             "-D", folder,
+            "--option", f"directory.base={folder}", 
             "--filter", "extension not in ('mp3', 'm4a', 'wav', 'mp4')",
             url,
         ]
-        subprocess.run(command, check=False)
-        files = [f for f in glob.glob(os.path.join(folder, "*")) if os.path.isfile(f)]
+        
+        # Run and wait for it to finish
+        try:
+            subprocess.run(command, check=False, timeout=60)
+        except subprocess.TimeoutExpired:
+            print("DEBUG: gallery-dl timed out.")
+
+        # 1. Search recursively for ANY files
+        all_downloaded = glob.glob(os.path.join(folder, "**", "*"), recursive=True)
+        files = [f for f in all_downloaded if os.path.isfile(f)]
+        
+        print(f"DEBUG: Files found on disk: {len(files)}")
+
+        result = {}
         for f in files:
+            # Skip non-images
+            if not f.lower().endswith(('.png', '.jpg', '.jpeg', '.webp', '.jfif')):
+                continue
+
             try:
                 with Image.open(f) as im:
                     im.thumbnail((320, 320))
                     buf = BytesIO()
                     im.convert('RGB').save(buf, 'JPEG', quality=75)
                     b64 = base64.b64encode(buf.getvalue()).decode('ascii')
-                    return {"thumbnail_b64": f"data:image/jpeg;base64,{b64}"}
-            except Exception:
+                    result["thumbnail_b64"] = f"data:image/jpeg;base64,{b64}"
+                    break 
+            except Exception as e:
+                print(f"DEBUG: Skipping {f} - {e}")
                 continue
-        return {}
+                
+        # If result is still empty here, it means no valid images were processed
+        return result
 
+    # --- INSTAGRAM LOGIC ---
     if "instagram.com" in lower and _INSTALOADER is not None:
         m = re.search(r"/(?:p|reels|reel)/([A-Za-z0-9_-]+)", url)
         if m:
@@ -134,18 +160,16 @@ def download_photo(url: str, notification: bool = False, target_folder: str | No
                 post = instaloader.Post.from_shortcode(_INSTALOADER.context, shortcode)
                 if hasattr(post, "url") and post.url:
                     saved = _save_image_from_url(post.url, folder, f"insta_{shortcode}")
-                    try:
-                        with Image.open(saved) as im:
-                            im.thumbnail((320, 320))
-                            buf = BytesIO()
-                            im.convert('RGB').save(buf, 'JPEG', quality=75)
-                            b64 = base64.b64encode(buf.getvalue()).decode('ascii')
-                            return {"thumbnail_b64": f"data:image/jpeg;base64,{b64}"}
-                    except Exception:
-                        return {}
+                    with Image.open(saved) as im:
+                        im.thumbnail((320, 320))
+                        buf = BytesIO()
+                        im.convert('RGB').save(buf, 'JPEG', quality=75)
+                        b64 = base64.b64encode(buf.getvalue()).decode('ascii')
+                        return {"thumbnail_b64": f"data:image/jpeg;base64,{b64}"}
             except Exception:
                 pass
 
+    # --- GENERAL WEB ---
     saved = _save_image_from_url(url, folder, f"direct_{abs(hash(url))}")
     try:
         with Image.open(saved) as im:
@@ -159,19 +183,39 @@ def download_photo(url: str, notification: bool = False, target_folder: str | No
 
 
 def download_video_audio(url: str, mode: str, notification: bool = False, target_folder: str | None = None):
-    """Download video or audio into `target_folder` if provided, otherwise into downloads/<mode>."""
+    """
+    Fixed version: Improved reliability for YouTube and Playlists.
+    """
     if target_folder is None:
         base_folder = os.path.abspath(os.path.join("downloads", mode))
     else:
         base_folder = os.path.abspath(target_folder)
     os.makedirs(base_folder, exist_ok=True)
 
+    def progress_hook(d):
+        if d["status"] == "downloading":
+            p = d.get("_percent_str", "").strip()
+            print(f"\r[Backend] Downloading: {p}", end="")
+
+    ffmpeg_path = os.path.abspath("ffmpeg/bin")
+
     ydl_opts = {
         "outtmpl": os.path.join(base_folder, "%(title)s.%(ext)s"),
-        "ffmpeg_location": "ffmpeg/bin",
         "quiet": True,
         "no_warnings": True,
+        "noplaylist": False,
+        "ignoreerrors": True,
+        "nocheckcertificate": True,
+        "extractor_args": {'youtube': {'player_client': ['android', 'ios']}},
+        "user_agent": "com.google.android.youtube/19.29.37 (Linux; U; Android 11) gzip",
+        "http_headers": {
+            "Accept": "*/*",
+            "Accept-Language": "en-US,en;q=0.9",
+        }
     }
+
+    if os.path.exists(ffmpeg_path):
+        ydl_opts["ffmpeg_location"] = ffmpeg_path
 
     if mode == "audio":
         ydl_opts.update({
@@ -184,32 +228,31 @@ def download_video_audio(url: str, mode: str, notification: bool = False, target
         })
     else:
         ydl_opts.update({
-            "format": "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best"
+            "format": "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+            "merge_output_format": "mp4",
         })
 
+    # This is the blocking call
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(url, download=True)
 
+    # Process metadata (Playlist vs Single)
     result = {}
-    if isinstance(info, dict) and info.get("_type") == "playlist":
-        result["playlist_title"] = info.get("title")
-
-    thumb_url = None
-    if isinstance(info, dict):
-        thumb_url = info.get('thumbnail') or info.get('thumbnails') and info.get('thumbnails')[-1].get('url') if info.get('thumbnails') else None
-
-    if thumb_url and target_folder:
-        try:
-            resp = requests.get(thumb_url, headers={"User-Agent": "Mozilla/5.0"}, timeout=20)
-            resp.raise_for_status()
-            with Image.open(BytesIO(resp.content)) as im:
-                im.thumbnail((320, 320))
-                buf = BytesIO()
-                im.convert('RGB').save(buf, 'JPEG', quality=75)
-                b64 = base64.b64encode(buf.getvalue()).decode('ascii')
-                result['thumbnail_b64'] = f"data:image/jpeg;base64,{b64}"
-        except Exception:
-            pass
+    if info:
+        result["playlist_title"] = info.get("title") if "entries" not in info else info.get("title", "Playlist")
+        
+        # Get Thumbnail
+        thumb = info.get('thumbnail') or (info.get('thumbnails')[-1]['url'] if info.get('thumbnails') else None)
+        if thumb:
+            try:
+                r = requests.get(thumb, timeout=5)
+                if r.status_code == 200:
+                    with Image.open(BytesIO(r.content)) as im:
+                        im.thumbnail((320, 320))
+                        buf = BytesIO()
+                        im.convert('RGB').save(buf, 'JPEG', quality=75)
+                        result['thumbnail_b64'] = f"data:image/jpeg;base64,{base64.b64encode(buf.getvalue()).decode()}"
+            except: pass
 
     return result
 
@@ -304,7 +347,6 @@ async def download_media(
 
     except Exception as e:
         cleanup_temp(tmpdir)
-        return templates.TemplateResponse("index.html", {
-            "request": request,
-            "error": str(e)
-        })
+        import traceback
+        print(traceback.format_exc()) # This prints the full error to YOUR terminal
+        raise HTTPException(status_code=500, detail=f"Downloader Error: {str(e)}")

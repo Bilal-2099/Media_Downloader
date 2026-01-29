@@ -9,7 +9,7 @@
 ARG PYTHON_VERSION=3.13.7
 FROM python:${PYTHON_VERSION}-slim as base
 
-RUN apt-get update && apt-get install -y ffmpeg
+RUN apt-get update && apt-get install -y ffmpeg && rm -rf /var/lib/apt/lists/*
 
 # Prevents Python from writing pyc files.
 ENV PYTHONDONTWRITEBYTECODE=1
