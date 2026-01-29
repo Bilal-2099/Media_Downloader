@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    
+    <meta charset="UTF-8"> 
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Downloader Tube</title>
+
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+
+    <style>
+        
+        :root {
+            
+            --primary-color: #0a0a0a; 
+            --primary-hover: #262626; 
+            --accent-color: #0a0a0a; 
+            --bg-color: #0a0a0a; 
+            --card-bg: #ffffff; 
+            --text-main: #1f2937; 
+            --text-muted: #6b7280; 
+            --border-color: #e5e7eb;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif; 
+            background-color: var(--bg-color); 
+            color: var(--text-main);
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            min-height: 100vh; 
+            margin: 0; 
+        }
+
+        .container {
+            background-color: var(--card-bg); 
+            padding: 2.5rem; 
+            border-radius: 16px; 
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1); 
+            width: 100%; 
+            max-width: 400px; 
+            text-align: left; 
+        }
+
+        
+        h1 {
+            font-size: 1.5rem; 
+            font-weight: 600; 
+            margin-bottom: 1.5rem; 
+            margin-top: 0; 
+            color: var(--text-main); 
+            text-align: center; 
+        }
+
+        .credit-text {
+            text-align: center; 
+            color: var(--text-muted); 
+            margin-top: -1.0rem;
+            margin-bottom: 2rem;
+            font-size: 0.9rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.25rem; 
+        }
+
+        label.input-label {
+            display: block; 
+            font-weight: 600; 
+            font-size: 0.9rem; 
+            margin-bottom: 0.5rem; 
+            color: var(--text-main); 
+        }
+
+        
+        .styled-input, .styled-select {
+            width: 100%; 
+            padding: 0.75rem 1rem; 
+            border: 2px solid var(--border-color); 
+            border-radius: 8px; 
+            font-size: 1rem; 
+            outline: none; 
+            transition: border-color 0.2s; 
+            box-sizing: border-box; 
+            background-color: #fff; 
+            font-family: inherit; 
+        }
+
+        .styled-input:focus, .styled-select:focus {
+            border-color: var(--accent-color);
+        }
+
+        .download-btn {
+            width: 100%; 
+            background-color: var(--primary-color); 
+            color: white; 
+            padding: 0.875rem; 
+            border: none; 
+            border-radius: 8px; 
+            font-size: 1rem; 
+            font-weight: 600;
+            cursor: pointer; 
+            transition: background-color 0.2s; 
+            margin-top: 1rem; 
+        }
+
+        .download-btn:hover {
+            background-color: var(--primary-hover);
+        }
+
+        
+        .main {
+            display: flex;
+            gap: 1rem;
+            align-items: flex-start;
+            width: 100%;
+            max-width: 900px;
+        }
+
+        .preview {
+            background-color: var(--card-bg);
+            padding: 1rem;
+            border-radius: 12px;
+            box-shadow: 0 6px 18px rgba(0,0,0,0.06);
+            width: 100%;
+            max-width: 420px;
+            box-sizing: border-box;
+        }
+
+        #loading {
+            margin-top: 1.5rem; 
+            color: var(--text-muted); 
+            font-size: 0.9rem; 
+            display: none; 
+            align-items: center; 
+            justify-content: center; 
+            gap: 8px; 
+        }
+
+        .spinner {
+            width: 20px; 
+            height: 20px;
+            border: 3px solid #e5e7eb; 
+            border-top-color: var(--primary-color); 
+            border-radius: 50%; 
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); } 
+        }
+    </style>
+</head>
+<body>
+
+    <div class="main">
+        <div class="container">
+        <h1>Downloader Tube</h1> 
+        <p class="credit-text">Made by <i> Bilal</i> </p> 
+
+        <form id="downloadForm" onsubmit="onSubmit(event)">
+            <div class="form-group">
+                <label for="video_url" class="input-label">Video URL</label>
+                <input type="text" id="video_url" name="video_url" class="styled-input" placeholder="Paste link here..." required>
+            </div>
+            
+            <div class="form-group">
+                <label for="format" class="input-label">Select Format</label>
+                <select id="format" name="format" class="styled-select">
+                    <option value="audio">Audio (MP3)</option>
+                    <option value="video">Video (MP4)</option>
+                    <option value="photo">Photo (JPG) or (PNG)</option>
+                </select>
+            </div>
+
+            <button type="submit" class="download-btn">Download</button>
+        </form>
+
+        <div id="loading" style="display: none;">
+            <div class="spinner"></div>
+            <span>Processing... please wait.</span>
+        </div>
+        </div>
+
+        <div class="preview" id="preview">
+            <h2 style="margin-top:0;">Now Downloading</h2>
+            <div id="previewContent" style="min-height:160px; display:flex; gap:10px; background:#f9fafb; border-radius:8px; padding:8px; box-sizing:border-box;">
+                <div id="thumbArea" style="width:160px; display:flex; align-items:center; justify-content:center;">
+                    <span id="previewPlaceholder" style="color:#6b7280;">No active download</span>
+                </div>
+                <div id="mediaArea" style="flex:1; display:flex; align-items:center; justify-content:center;">
+                </div>
+            </div>
+            <p id="previewInfo" style="color:#4b5563; font-size:0.9rem; margin-top:8px;">Waiting for a download...</p>
+        </div>
+    </div>
+
+    <script>
+        function showLoading() {
+            document.getElementById("loading").style.display = "flex";
+        }
+        function hideLoading() {
+            document.getElementById("loading").style.display = "none";
+        }
+
+        async function onSubmit(e) {
+            e.preventDefault();
+            showLoading();
+            const url = document.getElementById('video_url').value.trim();
+            const mode = document.getElementById('format').value;
+
+            const previewContent = document.getElementById('previewContent');
+            const thumbArea = document.getElementById('thumbArea');
+            const mediaArea = document.getElementById('mediaArea');
+            const previewInfo = document.getElementById('previewInfo');
+            if (thumbArea) thumbArea.innerHTML = '<span style="color:#6b7280;">Preparing...</span>';
+            if (mediaArea) mediaArea.innerHTML = '';
+            previewInfo.textContent = `Mode: ${mode}`;
+
+            try {
+                const resp = await fetch('/download/media', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: url, mode: mode, notification: false })
+                });
+
+                if (!resp.ok) {
+                    const err = await resp.json();
+                    alert('Error: ' + (err.detail || JSON.stringify(err)));
+                    hideLoading();
+                    if (thumbArea) thumbArea.innerHTML = '<span style="color:#ef4444;">Error</span>';
+                    if (mediaArea) mediaArea.innerHTML = '';
+                    previewInfo.textContent = err.detail || JSON.stringify(err);
+                    return;
+                }
+
+                const disposition = resp.headers.get('content-disposition') || '';
+                let filename = 'downloaded.file';
+                const match = /filename\*=UTF-8''([^;\n]+)/.exec(disposition) || /filename="?([^";]+)"?/.exec(disposition);
+                if (match) filename = decodeURIComponent(match[1]);
+
+                const contentType = resp.headers.get('content-type') || '';
+                const thumbHeader = resp.headers.get('x-thumbnail') || null;
+                    const arrayBuffer = await resp.arrayBuffer();
+                    const blob = new Blob([arrayBuffer], { type: contentType || 'application/octet-stream' });
+                const objectUrl = URL.createObjectURL(blob);
+
+                thumbArea.innerHTML = '';
+                mediaArea.innerHTML = '';
+
+                if (thumbHeader) {  
+                    const t = document.createElement('img');
+                    t.src = thumbHeader;
+                    t.style.maxWidth = '100%';
+                    t.style.borderRadius = '6px';
+                    thumbArea.appendChild(t);
+                } else {
+                    thumbArea.innerHTML = '<span style="color:#6b7280;">No thumbnail</span>';
+                }
+
+                const infoWrap = document.createElement('div');
+                infoWrap.style.display = 'flex';
+                infoWrap.style.flexDirection = 'column';
+                infoWrap.style.gap = '6px';
+                infoWrap.style.alignItems = 'flex-start';
+
+                const nameEl = document.createElement('div');
+                nameEl.style.fontWeight = '600';
+                nameEl.textContent = filename;
+                infoWrap.appendChild(nameEl);
+
+                const typeEl = document.createElement('div');
+                typeEl.style.color = '#6b7280';
+                typeEl.style.fontSize = '0.95rem';
+                typeEl.textContent = contentType || 'application/octet-stream';
+                infoWrap.appendChild(typeEl);
+
+                const sizeEl = document.createElement('div');
+                sizeEl.style.color = '#6b7280';
+                sizeEl.textContent = (blob.size / 1024).toFixed(1) + ' KB';
+                infoWrap.appendChild(sizeEl);
+
+                
+                mediaArea.appendChild(infoWrap);
+
+                const sizeText = (blob.size / 1024).toFixed(1) + ' KB';
+                previewInfo.textContent = `Filename: ${filename} | Type: ${contentType} | Size: ${sizeText}`;
+
+                const link = document.createElement('a');
+                link.href = objectUrl;
+                link.download = filename;
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+
+                hideLoading();
+
+                setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+
+            } catch (err) {
+                alert('Download failed: ' + err);
+                hideLoading();
+                if (thumbArea) thumbArea.innerHTML = '<span style="color:#ef4444;">Download failed</span>';
+                if (mediaArea) mediaArea.innerHTML = '';
+                previewInfo.textContent = String(err);
+            }
+        }
+    </script>
+
+</body>
+</html>
