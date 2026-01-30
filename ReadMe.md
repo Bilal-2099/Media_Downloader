@@ -43,3 +43,8 @@ A robust, containerized web application that allows users to download photos, vi
 1.  Paste the **URL** of the media you want to download.
 2.  Select the **Format** (Video, Audio, or Photo).
 3.  Click **Download**. The app will process the request and your browser will automatically start the download once it's ready.
+
+## Notice
+I tried downloading TikTok slideshow but TikTok has flagged my IP address so i can't verify that it is downloading slideshow or not. So if someone can try it in their machine and tell me. That would be helpful.
+
+Thanks for even reading this, If i have made any mistake then i am to acknowledged it and try to fix it.
